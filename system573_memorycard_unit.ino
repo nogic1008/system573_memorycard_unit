@@ -13,9 +13,6 @@
 #define AttPin1 3       //Attention (Select)
 #define AttPin2 4       //Attention (Select)
 
-//いじると壊れる
-bool use_log = true;
-
 byte memory_card_buf[128];
 //byte memory_card_buf_temp[128][32];
 byte controller_buf[4];
@@ -100,9 +97,6 @@ void setup() {
 
 void loop() {
   while (1) {
-    if (use_log == false) {
-      Serial.println("Running...");
-    }
     digitalWrite(13, LOW);
     serialEvent3_();
   }
@@ -135,13 +129,13 @@ void getRequest() {
   }
 
   if (is_req_ok == true) {
-    if (use_log == true) {
-      if (inByte <= 0xF) {
-        Serial.print("0");
-      }
-      Serial.print(inByte, HEX);
-      Serial.print(" ");
+#ifdef DEBUG
+    if (inByte <= 0xF) {
+      Serial.print("0");
     }
+    Serial.print(inByte, HEX);
+    Serial.print(" ");
+#endif
     if (inByte == 0xE0) {
       escByte = false;
       req_i = 0;
@@ -164,9 +158,9 @@ boolean isRequestComplete() {
   if (req_i >= 4) {
     if (req_i == (2 + request[1])) {
       time_start = millis();
-      if (use_log == true) {
-        Serial.println("");
-      }
+#ifdef DEBUG
+      Serial.println("");
+#endif
       return true;
     }
   }
@@ -222,18 +216,18 @@ void sendAnswer(byte* answer) {
 }
 
 void sec_plate(byte* request, byte* answer) {
-  if (use_log == true) {
-    Serial.print("SEC_PLATE_COMMAND::");
-  }
+#ifdef DEBUG
+  Serial.print("SEC_PLATE_COMMAND::");
+#endif
   if (request[req_index + 1] != 0x40 && request[req_index + 1] != 0x20 && request[req_index + 1] != 0x10) {
     req_index = req_index + 2;
-    if (use_log == true) {
-      Serial.print("SLOT-");
-    }
+#ifdef DEBUG
+    Serial.print("SLOT-");
+#endif
     select_slot = (byte)(request[req_index + 1] & 0x01);
-    if (use_log == true) {
-      Serial.println(select_slot, HEX);
-    }
+#ifdef DEBUG
+    Serial.println(select_slot, HEX);
+#endif
   }
   if (select_slot == 0x00) {
     sec_plate1_status = 0x00;
@@ -242,31 +236,31 @@ void sec_plate(byte* request, byte* answer) {
   }
   if (request[req_index + 1] == 0x10) {
     req_index = req_index + 10;
-    if (use_log == true) {
-      Serial.println("SET_PASS::");
-    }
+#ifdef DEBUG
+    Serial.println("SET_PASS::");
+#endif
   }
   if (request[req_index + 1] == 0x20) {
     req_index = req_index + 9;
     memset(pcb_buf, 0x00, 128);
     buf_mode = mode_sec_plate;
     if (select_slot == 0x00) {
-      if (use_log == true) {
-        Serial.println("TRANS_DATA_0::");
-      }
+#ifdef DEBUG
+      Serial.println("TRANS_DATA_0::");
+#endif
       memcpy(pcb_buf, sec_plate0_data, 5);
     } else {
-      if (use_log == true) {
-        Serial.println("TRANS_DATA_1::");
-      }
+#ifdef DEBUG
+      Serial.println("TRANS_DATA_1::");
+#endif
       memcpy(pcb_buf, sec_plate1_data, 5);
     }
   }
   if (request[req_index + 1] == 0x40) {
     req_index = req_index + 5;
-    if (use_log == true) {
-      Serial.println("TRANS_REG::");
-    }
+#ifdef DEBUG
+    Serial.println("TRANS_REG::");
+#endif
     buf_mode = mode_sec_plate;
     memset(pcb_buf, 0x00, 128);
     memcpy(pcb_buf, sec_plate_reg, 5);
@@ -275,53 +269,52 @@ void sec_plate(byte* request, byte* answer) {
 }
 
 void control_buf(byte* request, byte* answer) {
-  if (use_log == true) {
-    Serial.print("CONTROL_BUF::");
-  }
-  use_log = false;
+#ifdef DEBUG
+  Serial.print("CONTROL_BUF::");
+#endif
   int offset = ((request[req_index + 3] & 0x7F) << 1) + ((request[req_index + 4] & 0x80) >> 7);
   int len = request[req_index + 5];
   if (request[req_index + 1] == 0) {
     if (buf_mode == mode_memory_card) {
-      if (use_log == true) {
-        Serial.print("MODE:MEMORY_CARD::");
-      }
+#ifdef DEBUG
+      Serial.print("MODE:MEMORY_CARD::");
+#endif
       memset(memory_card_buf, 0x00, 128);
       if (PS_SLOT_find_slot_memory_card(select_port) == 1) {
-        if (use_log == true) {
-          Serial.println("CARD_FIND::");
-        }
+#ifdef DEBUG
+        Serial.println("CARD_FIND::");
+#endif
         if (PS_SLOT_ReadFrame(select_port, base_address + offset) == 0x47) {
 
-          if (use_log == true) {
-            Serial.println("READ_OK");
-          }
+#ifdef DEBUG
+          Serial.println("READ_OK");
+#endif
           memset(pcb_buf, 0x00, 128);
           memcpy(pcb_buf, memory_card_buf, 128);
+#ifdef DEBUG
         } else {
-          if (use_log == true) {
-            Serial.println("READ_NG");
-          }
+          Serial.println("READ_NG");
+#endif
         }
+#ifdef DEBUG
       } else {
-        if (use_log == true) {
-          Serial.println("NO_INSERT");
-        }
+        Serial.println("NO_INSERT");
+#endif
       }
     }
 
-    if (use_log == true) {
-      Serial.print("PCB_BUF_READ::base_address=");
-      Serial.print(base_address, HEX);
-      Serial.print(":offset=");
-      Serial.print(offset, HEX);
-      Serial.print(":LEN=");
-      Serial.print(len, HEX);
-      Serial.print(":port=");
-      Serial.print(select_port, HEX);
-      Serial.print(":MODE=");
-      Serial.println(buf_mode, HEX);
-    }
+#ifdef DEBUG
+    Serial.print("PCB_BUF_READ::base_address=");
+    Serial.print(base_address, HEX);
+    Serial.print(":offset=");
+    Serial.print(offset, HEX);
+    Serial.print(":LEN=");
+    Serial.print(len, HEX);
+    Serial.print(":port=");
+    Serial.print(select_port, HEX);
+    Serial.print(":MODE=");
+    Serial.println(buf_mode, HEX);
+#endif
 
     byte buf_data[128 + 1];
     buf_data[0] = len;
@@ -330,12 +323,12 @@ void control_buf(byte* request, byte* answer) {
     make_responce(answer, buf_data);
   }
   if (request[req_index + 1] == 1) {
-    if (use_log == true) {
-      Serial.print("PCB_BUF_WRITE::base_address=");
-      Serial.print(base_address, HEX);
-      Serial.print(":LEN=");
-      Serial.println(len, HEX);
-    }
+#ifdef DEBUG
+    Serial.print("PCB_BUF_WRITE::base_address=");
+    Serial.print(base_address, HEX);
+    Serial.print(":LEN=");
+    Serial.println(len, HEX);
+#endif
     memset(pcb_buf, 0x00, 128);
     for (int i = 0; i < len; i++) {
       pcb_buf[i] = request[(req_index + 6 + i)];
@@ -344,31 +337,29 @@ void control_buf(byte* request, byte* answer) {
     make_responce(answer, command_OK1);
   }
   if (request[req_index + 1] == 2) {
-    if (use_log == true) {
-      Serial.println("PCB_BUF_UNKNOWN::");
-    }
+#ifdef DEBUG
+    Serial.println("PCB_BUF_UNKNOWN::");
+#endif
     req_index = req_index + 5;
     make_responce(answer, command_OK1);
   }
-
-  use_log = true;
 }
 
 void memory_card_function(byte* request, byte* answer) {
   if (request[req_index + 1] == 0x74) {
-    if (use_log == true) {
-      Serial.println("MEMORY_CARD_READ_TRANS_BUF::");
-    }
+#ifdef DEBUG
+    Serial.println("MEMORY_CARD_READ_TRANS_BUF::");
+#endif
     buf_mode = mode_memory_card;
     if ((request[req_index + 2] & 0xF0) == 0x00) {
-      if (use_log == true) {
-        Serial.println("PORT-00::");
-      }
+#ifdef DEBUG
+      Serial.println("PORT-00::");
+#endif
       select_port = 0;
     } else {
-      if (use_log == true) {
-        Serial.println("PORT-01::");
-      }
+#ifdef DEBUG
+      Serial.println("PORT-01::");
+#endif
       select_port = 1;
     }
 
@@ -376,19 +367,19 @@ void memory_card_function(byte* request, byte* answer) {
     byte base_address_L = request[req_index + 3];
 
     base_address = (base_address_H << 8) + base_address_L;
-    if (use_log == true) {
-      Serial.print("base_address::");
-      Serial.print(base_address, HEX);
-      Serial.print(":");
-    }
+#ifdef DEBUG
+    Serial.print("base_address::");
+    Serial.print(base_address, HEX);
+    Serial.print(":");
+#endif
     if (PS_SLOT_find_slot_memory_card(select_port) == 1) {
       if (PS_SLOT_ReadFrame(select_port, base_address) == 0x47) {
         memset(pcb_buf, 0x00, 128);
         memcpy(pcb_buf, memory_card_buf, 128);
 
-        if (use_log == true) {
-          Serial.println("state::READ_OK");
-        }
+#ifdef DEBUG
+        Serial.println("state::READ_OK");
+#endif
         if (select_port == 0) {
           memory_card1_status1 = 0x80;
           memory_card1_status2 = 0x00;
@@ -397,9 +388,9 @@ void memory_card_function(byte* request, byte* answer) {
           memory_card2_status2 = 0x00;
         }
       } else {
-        if (use_log == true) {
-          Serial.println("state::READ_NG");
-        }
+#ifdef DEBUG
+        Serial.println("state::READ_NG");
+#endif
         if (select_port == 0) {
           memory_card1_status1 = 0x00;
           memory_card1_status2 = 0x00;
@@ -408,11 +399,10 @@ void memory_card_function(byte* request, byte* answer) {
           memory_card2_status2 = 0x00;
         }
       }
-
     } else {
-      if (use_log == true) {
-        Serial.println("state::NO_INSERT");
-      }
+#ifdef DEBUG
+      Serial.println("state::NO_INSERT");
+#endif
       if (select_port == 0) {
         memory_card1_status1 = 0x00;
         memory_card1_status2 = 0x08;
@@ -423,34 +413,34 @@ void memory_card_function(byte* request, byte* answer) {
     }
   }
   if (request[req_index + 1] == 0x75) {
-    if (use_log == true) {
-      Serial.println("MEMORY_CARD_WRITE::");
-    }
+#ifdef DEBUG
+    Serial.println("MEMORY_CARD_WRITE::");
+#endif
     if ((request[req_index + 5] & 0xF0) == 0x00) {
-      if (use_log == true) {
-        Serial.println("PORT-00::");
-      }
+#ifdef DEBUG
+      Serial.println("PORT-00::");
+#endif
       select_port = 0;
     } else {
-      if (use_log == true) {
-        Serial.println("PORT-01::");
-      }
+#ifdef DEBUG
+      Serial.println("PORT-01::");
+#endif
       select_port = 1;
     }
     byte base_address_H = (byte)(request[req_index + 5] & 0x0F);
     byte base_address_L = request[req_index + 6];
     int address = (base_address_H << 8) + base_address_L;
-    if (use_log == true) {
-      Serial.print("write_address::");
-      Serial.print(address, HEX);
-      Serial.print(":");
-    }
+#ifdef DEBUG
+    Serial.print("write_address::");
+    Serial.print(address, HEX);
+    Serial.print(":");
+#endif
     memset(memory_card_buf, 0x00, 128);
     memcpy(memory_card_buf, pcb_buf, 128);
     if (PS_SLOT_WriteFrame(select_port, address) == 0x47) {
-      if (use_log == true) {
-        Serial.println("state::WRITE_OK");
-      }
+#ifdef DEBUG
+      Serial.println("state::WRITE_OK");
+#endif
       if (select_port == 0) {
         memory_card1_status1 = 0x80;
         memory_card1_status2 = 0x00;
@@ -459,9 +449,9 @@ void memory_card_function(byte* request, byte* answer) {
         memory_card2_status2 = 0x00;
       }
     } else {
-      if (use_log == true) {
-        Serial.println("state::WRITE_NG");
-      }
+#ifdef DEBUG
+      Serial.println("state::WRITE_NG");
+#endif
       if (select_port == 0) {
         memory_card1_status1 = 0x00;
         memory_card1_status2 = 0x00;
@@ -476,45 +466,45 @@ void memory_card_function(byte* request, byte* answer) {
 }
 
 void make_status(byte* request, byte* answer) {
-  if (use_log == true) {
-    Serial.print("STATUS_CHECK::");
-  }
+#ifdef DEBUG
+  Serial.print("STATUS_CHECK::");
+#endif
   byte status1 = 0x00;
   byte status2 = 0x00;
 
   if (select_port == 0) {
-    if (use_log == true) {
-      Serial.println("PORT-00::");
-    }
+#ifdef DEBUG
+    Serial.println("PORT-00::");
+#endif
     status1 = memory_card1_status1;
     status2 = memory_card1_status2;
   }
   if (select_port == 1) {
 
-    if (use_log == true) {
-      Serial.println("PORT-01::");
-    }
+#ifdef DEBUG
+    Serial.println("PORT-01::");
+#endif
     status1 = memory_card2_status1;
     status2 = memory_card2_status2;
   }
   if (select_port == 2) {
 
-    if (use_log == true) {
-      Serial.println("PORT---");
-    }
+#ifdef DEBUG
+    Serial.println("PORT---");
+#endif
     status1 = memory_card3_status1;
     status2 = memory_card3_status2;
   }
   if (select_slot == 0) {
-    if (use_log == true) {
-      Serial.println("slot-00::");
-    }
+#ifdef DEBUG
+    Serial.println("slot-00::");
+#endif
     status2 = status2 | sec_plate1_status;
   }
   if (select_slot == 1) {
-    if (use_log == true) {
-      Serial.println("slot-01::");
-    }
+#ifdef DEBUG
+    Serial.println("slot-01::");
+#endif
     status2 = status2 | sec_plate2_status;
   }
   byte state[3];
@@ -547,9 +537,6 @@ void processRequest_(byte* request, byte* answer) {
     switch (request[req_index]) {
       case 0xF0:
         req_index = req_index + 2;
-        if (use_log == true) {
-          //Serial.println("JVS_RESET");
-        }
         pinMode(jvs_sense, INPUT);
 
         select_slot = 0;
@@ -559,54 +546,54 @@ void processRequest_(byte* request, byte* answer) {
         init_jvs = false;
         break;
       case 0xF1:
-        if (use_log == true) {
-          Serial.println("JVS_SET_DEV_ID");
-        }
+#ifdef DEBUG
+        Serial.println("JVS_SET_DEV_ID");
+#endif
         req_index = req_index + 2;
         make_responce(answer, command_OK1);
         base_address = 0;
         init_jvs = true;
         break;
       case 0x2F:
-        if (use_log == true) {
-          Serial.println("JVS_RESEND");
-        }
+#ifdef DEBUG
+        Serial.println("JVS_RESEND");
+#endif
         req_index = req_index + 1;
         rs485_send(send_data, answer_count - 1);
         noack = true;
         break;
       case 0x10:
-        if (use_log == true) {
-          Serial.println("JVS_GET_DEV_ID");
-        }
+#ifdef DEBUG
+        Serial.println("JVS_GET_DEV_ID");
+#endif
         req_index = req_index + 1;
         make_responce(answer, device_id);
         break;
       case 0x11:
-        if (use_log == true) {
-          Serial.println("JVS_GET_COMMAND_REV");
-        }
+#ifdef DEBUG
+        Serial.println("JVS_GET_COMMAND_REV");
+#endif
         req_index = req_index + 1;
         make_responce(answer, jvs_command_info);
         break;
       case 0x12:
-        if (use_log == true) {
-          Serial.println("JVS_GET_VERSION");
-        }
+#ifdef DEBUG
+        Serial.println("JVS_GET_VERSION");
+#endif
         req_index = req_index + 1;
         make_responce(answer, jvs_version_info);
         break;
       case 0x13:
-        if (use_log == true) {
-          Serial.println("JVS_GET_TRANS_VERSION");
-        }
+#ifdef DEBUG
+        Serial.println("JVS_GET_TRANS_VERSION");
+#endif
         req_index = req_index + 1;
         make_responce(answer, jvs_trans_info);
         break;
       case 0x14:
-        if (use_log == true) {
-          Serial.println("JVS_GET_FUNCTION_INFO");
-        }
+#ifdef DEBUG
+        Serial.println("JVS_GET_FUNCTION_INFO");
+#endif
         req_index = req_index + 1;
         make_responce(answer, jvs_function_info);
         break;
@@ -620,18 +607,18 @@ void processRequest_(byte* request, byte* answer) {
         sec_plate(request, answer);
         break;
       case 0x73:
-        if (use_log == true) {
-          Serial.println("PCB_FW_WRITE_DONE");
-        }
+#ifdef DEBUG
+        Serial.println("PCB_FW_WRITE_DONE");
+#endif
         req_index = req_index + 1;
         make_responce(answer, command_OK1);
       case 0x76:
         memory_card_function(request, answer);
         break;
       case 0x77:
-        if (use_log == true) {
-          Serial.println("PS_CONTROLLER_GET");
-        }
+#ifdef DEBUG
+        Serial.println("PS_CONTROLLER_GET");
+#endif
         req_index = req_index + 1;
         PS_SLOT_update_controller_buf();
         byte ps_data[5];
@@ -644,9 +631,9 @@ void processRequest_(byte* request, byte* answer) {
         break;
       default:
         req_index = req_index + 256;
-        if (use_log == true) {
-          Serial.println("UNKNOWN");
-        }
+#ifdef DEBUG
+        Serial.println("UNKNOWN");
+#endif
         byte null_data[1];
         null_data[0] = 0x00;
         make_responce(answer, null_data);
@@ -818,17 +805,17 @@ void rs485_send(const byte* addr, byte len) {
   while (!(UCSR3A & (1 << TXC3)));  // Wait for the transmission to complete
   digitalWrite(serialctl, rs485_rx);
 
-  if (use_log == true) {
-    Serial.print(time_end - time_start, DEC);
-    Serial.println("");
-    for (int i = 0; i < len; i++) {
-      if (addr[i] < 0x10) {
-        Serial.print("0");
-      }
-      Serial.print(addr[i], HEX);
-      Serial.print(":");
+#ifdef DEBUG
+  Serial.print(time_end - time_start, DEC);
+  Serial.println("");
+  for (int i = 0; i < len; i++) {
+    if (addr[i] < 0x10) {
+      Serial.print("0");
     }
-    Serial.println("");
-    Serial.println("");
+    Serial.print(addr[i], HEX);
+    Serial.print(":");
   }
+  Serial.println("");
+  Serial.println("");
+#endif
 }
