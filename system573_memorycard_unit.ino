@@ -18,16 +18,22 @@
 //0x4E - BadChecksum
 //0xFF - BadSector
 
-//Define pins
+#pragma region Pins
 #define interruptPin 2  //Attention (Select)
 #define AttPin1 3       //Attention (Select)
 #define AttPin2 4       //Attention (Select)
+// RS485 Control
+#define SerialCtlPin 5
+// JVS Sense
+#define JvsSensePin 6
+#pragma endregion
 
 byte memory_card_buf[128];
 //byte memory_card_buf_temp[128][32];
 byte controller_buf[4];
 
 //JVS
+#define JvsSerial Serial1
 bool noack = false;
 bool init_jvs = false;
 byte request[256];
@@ -69,8 +75,6 @@ byte memory_card3_status2 = 0x00;
 #define mode_memory_card 0
 #define mode_sec_plate 1
 byte buf_mode = 0;
-const int serialctl = 5;
-const int jvs_sense = 6;
 
 int base_address;
 byte pcb_buf[128];
@@ -94,12 +98,12 @@ void setup() {
   memset(pcb_buf, 0x00, 128);
 
   debug_begin(115200);
-  Serial3.begin(115200);
+  JvsSerial.begin(115200);
 
-  pinMode(serialctl, OUTPUT);
-  pinMode(jvs_sense, INPUT);
-  digitalWrite(jvs_sense, LOW);
-  digitalWrite(serialctl, rs485_rx);
+  pinMode(SerialCtlPin, OUTPUT);
+  pinMode(JvsSensePin, INPUT);
+  digitalWrite(JvsSensePin, LOW);
+  digitalWrite(SerialCtlPin, rs485_rx);
   PS_SLOT_PinSetup();
   initDone = true;
   debugln("START");
@@ -133,9 +137,9 @@ void getRequest() {
   byte inByte = 0x00;
   bool is_req_ok = false;
 
-  if (Serial3.available() > 0) {
+  if (JvsSerial.available() > 0) {
     is_req_ok = true;
-    inByte = Serial3.read();
+    inByte = JvsSerial.read();
   }
 
   if (is_req_ok == true) {
@@ -191,7 +195,7 @@ void processRequest() {
     noack = false;
   }
   if (init_jvs == true) {
-    pinMode(jvs_sense, OUTPUT);
+    pinMode(JvsSensePin, OUTPUT);
   }
 }
 
@@ -473,7 +477,7 @@ void processRequest_(byte* request, byte* answer) {
     switch (request[req_index]) {
       case 0xF0:
         req_index = req_index + 2;
-        pinMode(jvs_sense, INPUT);
+        pinMode(JvsSensePin, INPUT);
 
         select_slot = 0;
         select_port = 2;
@@ -714,12 +718,12 @@ int PS_SLOT_find_slot_memory_card(int slot) {
 
 void rs485_send(const byte* addr, byte len) {
   time_end = millis();
-  digitalWrite(serialctl, rs485_tx);
-  Serial3.write(addr, len);
+  digitalWrite(SerialCtlPin, rs485_tx);
+  JvsSerial.write(addr, len);
   while (!(UCSR3A & (1 << UDRE3)))  // Wait for empty transmit buffer
     UCSR3A |= 1 << TXC3;            // mark transmission not complete
   while (!(UCSR3A & (1 << TXC3)));  // Wait for the transmission to complete
-  digitalWrite(serialctl, rs485_rx);
+  digitalWrite(SerialCtlPin, rs485_rx);
 
   debug(time_end - time_start, DEC);
   debugln("");
