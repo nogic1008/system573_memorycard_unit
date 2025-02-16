@@ -82,10 +82,7 @@ unsigned long time_start;
 unsigned long time_end;
 
 void PS_SLOT_PinSetup() {
-  SPI.setBitOrder(LSBFIRST);
-  SPI.setClockDivider(SPI_CLOCK_DIV32);
-  SPI.setDataMode(SPI_MODE3);
-  SPI.begin();
+  SPI.beginTransaction(SPISettings(125000, LSBFIRST, SPI_MODE3));
   pinMode(MISO, OUTPUT);
   pinMode(AttPin1, OUTPUT);
   pinMode(AttPin2, OUTPUT);
@@ -565,10 +562,9 @@ void processRequest_(byte* request, byte* answer) {
 }
 
 byte PS_SLOT_SendCommand(byte CommandByte) {
-  SPDR = CommandByte;             //Start the transmission
-  while (!(SPSR & (1 << SPIF)));  //Wait for the end of the transmission
+  uint8_t res = SPI.transfer(CommandByte);  // Send the command byte
   delayMicroseconds(16);
-  return SPDR;
+  return res;
 }
 
 //Read a frame from Memory Card and send it to serial port
@@ -720,9 +716,7 @@ void rs485_send(const byte* addr, byte len) {
   time_end = millis();
   digitalWrite(SerialCtlPin, rs485_tx);
   JvsSerial.write(addr, len);
-  while (!(UCSR3A & (1 << UDRE3)))  // Wait for empty transmit buffer
-    UCSR3A |= 1 << TXC3;            // mark transmission not complete
-  while (!(UCSR3A & (1 << TXC3)));  // Wait for the transmission to complete
+  JvsSerial.flush();  // Wait for the transmission to complete
   digitalWrite(SerialCtlPin, rs485_rx);
 
   debug(time_end - time_start, DEC);
